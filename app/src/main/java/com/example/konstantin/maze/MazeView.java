@@ -62,7 +62,7 @@ public class MazeView extends View {
 
         int dx,dy;
 
-        if (maze[x][y] == exit) {
+        if (maze[x][y] == exit) {  //if path point equals exit point - we found the path
             path.add(x);
             path.add(y);
             return true;
@@ -238,10 +238,10 @@ public class MazeView extends View {
             }
         }
 
-        player = cells[0][0];
-        exit = cells[COLS-1][ROWS-1];
+        player = cells[0][0]; //player's position
+        exit = cells[COLS-1][ROWS-1]; //finish position
 
-        current = cells[0][0];
+        current = cells[0][0]; //start creating maze from this point
         current.visited = true;
         do {
             next = getNeighbour(current);
@@ -328,6 +328,7 @@ public class MazeView extends View {
         searchPath(cells,0,0,path);
         canvas.translate(hMargin + cellSize/2,vMargin);
 
+        //Drawing path
         pathPaint.setStrokeWidth(4);
         pathPaint.setColor(Color.GREEN);
         for (int p = 0; p < path.size(); p += 2) {
@@ -368,7 +369,7 @@ public class MazeView extends View {
 
         int col, row;
 
-        public Cell(int col, int row) {
+        Cell(int col, int row) {
             this.col = col;
             this.row = row;
         }
