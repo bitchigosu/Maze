@@ -14,21 +14,32 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Stack;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+
+import static com.example.konstantin.maze.MainActivity.handler;
 
 public class MazeView extends View {
 
-    private enum Direction {UP, RIGHT,DOWN, LEFT};
+    enum Direction {UP, RIGHT,DOWN, LEFT};
 
     private final List<Integer> path = new ArrayList<Integer>();
     ArrayList<Cell> neighbours;
 
     private Cell[][] cells;
-    public Cell player, exit;
+    public Cell player, exit, player1, player2;
+    private Cell[] players;
     public static final int COLS = 10, ROWS = 15;
     private static final float WALL_THICKNESS = 4;
     private float cellSize, hMargin, vMargin;
-    private Paint wallPaint, playerPaint, exitPaint, pathPaint;
+    private Paint wallPaint, playerPaint, exitPaint, pathPaint, player1Paint, player2Paint;
     private Random random;
+    private int delay = 100;
+    private Runnable runnable;
+    int i;
+    boolean player1move = true;
 
 
     public MazeView(Context context, @Nullable AttributeSet attrs) {
@@ -40,6 +51,12 @@ public class MazeView extends View {
         playerPaint = new Paint();
         playerPaint.setColor(Color.RED);
 
+        player1Paint = new Paint();
+        player1Paint.setColor(Color.YELLOW);
+
+        player2Paint = new Paint();
+        player2Paint.setColor(Color.GRAY);
+
         exitPaint = new Paint();
         exitPaint.setColor(Color.BLUE);
 
@@ -47,16 +64,23 @@ public class MazeView extends View {
         pathPaint.setColor(Color.GREEN);
 
         random = new Random();
-
         createMaze();
     }
 
-    private void drawPath(List<Integer> path) {
-        Canvas canvas = new Canvas();
-        canvas.translate(hMargin,vMargin);
+    private void moveByPath() {
+        i = path.size() - 1;
+        handler.postDelayed(runnable = new Runnable() {
+            @Override
+            public void run() {
+                    movePlayer(i,Direction.UP);
+                    if(player1move) {
+                        i-=2;
+                        handler.postDelayed(runnable, delay);
+                    }
+            }
+        },delay);
 
     }
-
     private boolean searchPath(Cell[][] maze, int x, int y
             , List<Integer> path) {
 
@@ -114,23 +138,31 @@ public class MazeView extends View {
         return false;
     }
 
-    private void movePlayer(Direction direction) {
+    public void movePlayer(int i, Direction direction) {
         switch (direction) {
             case UP:
-                if(!player.topWall)
-                    player=cells[player.col][player.row-1];
+               // if(!player.topWall)
+                    //player=cells[player.col][player.row-1];
+
+                        try {
+                            player1 = cells[path.get(i - 1)][path.get(i)];
+                        } catch (IndexOutOfBoundsException e) {
+                            player1 = exit;
+                            player1move = false;
+                        }
+
                 break;
             case DOWN:
                 if(!player.bottomWall)
                     player=cells[player.col][player.row+1];
                 break;
             case LEFT:
-                if(!player.leftWall)
-                    player=cells[player.col-1][player.row];
+                if(!player1.leftWall)
+                    player1=cells[player1.col-1][player1.row];
                 break;
             case RIGHT:
-                if(!player.rightWall)
-                    player=cells[player.col+1][player.row];
+                if(!player2.rightWall)
+                    player2=cells[player2.col+1][player2.row];
                 break;
         }
         invalidate();
@@ -139,9 +171,12 @@ public class MazeView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN)
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            moveByPath();
             return true;
-        if (event.getAction() == MotionEvent.ACTION_MOVE) {
+        }
+
+      /*  if (event.getAction() == MotionEvent.ACTION_MOVE) {
             float x = event.getX();
             float y = event.getY();
 
@@ -171,6 +206,7 @@ public class MazeView extends View {
             }
             return true;
         }
+        */
 
 
         return super.onTouchEvent(event);
@@ -238,9 +274,12 @@ public class MazeView extends View {
             }
         }
 
-        player = cells[0][0]; //player's position
+        player = cells[0][0];
+        player1 = cells[0][0];
+        player2 = cells[0][0];//player's position
         exit = cells[COLS-1][ROWS-1]; //finish position
 
+        players = new Cell[] {player, player1, player2};
         current = cells[0][0]; //start creating maze from this point
         current.visited = true;
         do {
@@ -319,6 +358,22 @@ public class MazeView extends View {
         );
 
         canvas.drawRect(
+                player1.col*cellSize+margin,
+                player1.row*cellSize+margin,
+                (player1.col+1)*cellSize-margin,
+                (player1.row+1)*cellSize-margin,
+                player1Paint
+        );
+
+        canvas.drawRect(
+                player2.col*cellSize+margin,
+                player2.row*cellSize+margin,
+                (player2.col+1)*cellSize-margin,
+                (player2.row+1)*cellSize-margin,
+                player2Paint
+        );
+
+        canvas.drawRect(
                 exit.col*cellSize+margin,
                 exit.row*cellSize+margin,
                 (exit.col+1)*cellSize-margin,
@@ -326,7 +381,7 @@ public class MazeView extends View {
                 exitPaint
         );
         searchPath(cells,0,0,path);
-        canvas.translate(hMargin + cellSize/2,vMargin);
+        canvas.translate(hMargin - cellSize/2,vMargin);
 
         //Drawing path
         pathPaint.setStrokeWidth(4);
@@ -374,4 +429,5 @@ public class MazeView extends View {
             this.row = row;
         }
     }
+
 }
