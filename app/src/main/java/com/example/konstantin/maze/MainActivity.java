@@ -20,6 +20,7 @@ public class MainActivity extends AppCompatActivity {
     MazeView maze;
     Intent intent;
     static Handler handler = new Handler();
+    static Handler handler1 = new Handler();
 
 
     @Override

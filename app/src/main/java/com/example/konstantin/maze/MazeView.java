@@ -1,5 +1,6 @@
 package com.example.konstantin.maze;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -9,6 +10,7 @@ import android.util.AttributeSet;
 
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +22,7 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 
 import static com.example.konstantin.maze.MainActivity.handler;
+import static com.example.konstantin.maze.MainActivity.handler1;
 
 public class MazeView extends View {
 
@@ -31,15 +34,16 @@ public class MazeView extends View {
     private Cell[][] cells;
     public Cell player, exit, player1, player2;
     private Cell[] players;
-    public static final int COLS = 10, ROWS = 15;
+    public static final int COLS = 15, ROWS = 15;
     private static final float WALL_THICKNESS = 4;
     private float cellSize, hMargin, vMargin;
     private Paint wallPaint, playerPaint, exitPaint, pathPaint, player1Paint, player2Paint;
     private Random random;
-    private int delay = 100;
+    private int delay = 500;
     private Runnable runnable;
     int i;
     boolean player1move = true;
+    MyThread thread = null;
 
 
     public MazeView(Context context, @Nullable AttributeSet attrs) {
@@ -68,18 +72,9 @@ public class MazeView extends View {
     }
 
     private void moveByPath() {
-        i = path.size() - 1;
-        handler.postDelayed(runnable = new Runnable() {
-            @Override
-            public void run() {
-                    movePlayer(i,Direction.UP);
-                    if(player1move) {
-                        i-=2;
-                        handler.postDelayed(runnable, delay);
-                    }
-            }
-        },delay);
-
+        if (thread == null)
+            thread = new MyThread(0);
+        thread.start();
     }
     private boolean searchPath(Cell[][] maze, int x, int y
             , List<Integer> path) {
@@ -138,23 +133,106 @@ public class MazeView extends View {
         return false;
     }
 
+    private void movement(final int n) throws IndexOutOfBoundsException {
+        if (!players[n].bottomWall && !cells[players[n].col][players[n].row + 1].nextVisited) {
+            cells[players[n].col][players[n].row + 1].nextVisited = true;
+            if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].nextVisited && !players[n].topWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                // players[n+1] = cells[players[n].col][players[n].row - 1];
+            }
+            else if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].nextVisited && !players[n].rightWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+               // players[n+1] = cells[players[n].col + 1][players[n].row];
+            }
+            else if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].nextVisited && !players[n].leftWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+               // players[n+1] = cells[players[n].col - 1][players[n].row];
+            }
+            players[n] = cells[players[n].col][players[n].row + 1];
+
+        }
+
+        else if (!players[n].rightWall && !cells[players[n].col + 1][players[n].row].nextVisited) {
+            cells[players[n].col + 1][players[n].row].nextVisited = true;
+            if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].nextVisited && !players[n].topWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                players[n+1] = cells[players[n].col][players[n].row - 1];
+            }
+            else if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].nextVisited && !players[n].bottomWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                players[n+1] = cells[players[n].col][players[n].row + 1];
+            }
+            else if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].nextVisited && !players[n].leftWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                players[n+1] = cells[players[n].col - 1][players[n].row];
+            }
+            players[n] = cells[players[n].col + 1][players[n].row];
+        }
+
+        else if (!players[n].topWall && !cells[players[n].col][players[n].row - 1].nextVisited) {
+            cells[players[n].col][players[n].row - 1].nextVisited = true;
+            if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].nextVisited && !players[n].bottomWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                players[n+1] = cells[players[n].col][players[n].row + 1];
+            }
+            else if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].nextVisited && !players[n].rightWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                players[n+1] = cells[players[n].col + 1][players[n].row];
+            }
+            else if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].nextVisited && !players[n].leftWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                players[n+1] = cells[players[n].col - 1][players[n].row];
+            }
+            players[n] = cells[players[n].col][players[n].row - 1];
+        }
+
+        else if (!players[n].leftWall && !cells[players[n].col - 1][players[n].row].nextVisited) {
+            cells[players[n].col - 1][players[n].row].nextVisited = true;
+            if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].nextVisited && !players[n].topWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                players[n+1] = cells[players[n].col][players[n].row - 1];
+            }
+            else if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].nextVisited && !players[n].rightWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                players[n+1] = cells[players[n].col + 1][players[n].row];
+            }
+            else if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].nextVisited && !players[n].bottomWall) {
+                MyThread t = new MyThread(n+1);
+                t.start();
+                players[n+1] = cells[players[n].col][players[n].row + 1];
+            }
+            players[n] = cells[players[n].col - 1][players[n].row];
+        }
+    }
+
     public void movePlayer(int i, Direction direction) {
         switch (direction) {
             case UP:
-               // if(!player.topWall)
-                    //player=cells[player.col][player.row-1];
-
-                        try {
-                            player1 = cells[path.get(i - 1)][path.get(i)];
-                        } catch (IndexOutOfBoundsException e) {
-                            player1 = exit;
-                            player1move = false;
-                        }
+                try {
+                    players[1] = cells[path.get(i - 1)][path.get(i)];
+                } catch (IndexOutOfBoundsException e) {
+                   // players[1] = exit;
+                    Toast.makeText(getContext(),"Finish", Toast.LENGTH_SHORT).show();
+                    player1move = false;
+                }
 
                 break;
             case DOWN:
-                if(!player.bottomWall)
-                    player=cells[player.col][player.row+1];
+                if(!players[0].bottomWall) {
+                    players[0]=cells[players[0].col][players[0].row+1];
+                }
+
                 break;
             case LEFT:
                 if(!player1.leftWall)
@@ -165,7 +243,13 @@ public class MazeView extends View {
                     player2=cells[player2.col+1][player2.row];
                 break;
         }
-        invalidate();
+
+        ((Activity)getContext()).runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                invalidate();
+            }
+        });
     }
 
 
@@ -175,40 +259,6 @@ public class MazeView extends View {
             moveByPath();
             return true;
         }
-
-      /*  if (event.getAction() == MotionEvent.ACTION_MOVE) {
-            float x = event.getX();
-            float y = event.getY();
-
-            float playerCenterX = hMargin + (player.col + 0.5f)*cellSize;
-            float playerCenterY = vMargin + (player.row + 0.5f)*cellSize;
-
-
-            float dx = x - playerCenterX;
-            float dy = y - playerCenterY;
-
-            float absX = Math.abs(dx);
-            float absY = Math.abs(dy);
-
-            if (absX > cellSize || absY > cellSize) {
-                if(absX > absY) {
-                    if (dx > 0)
-                        movePlayer(Direction.RIGHT);
-                    else
-                        movePlayer(Direction.LEFT);
-                }
-                else {
-                    if (dy > 0)
-                        movePlayer(Direction.DOWN);
-                    else
-                        movePlayer(Direction.UP);
-                }
-            }
-            return true;
-        }
-        */
-
-
         return super.onTouchEvent(event);
     }
 
@@ -350,26 +400,26 @@ public class MazeView extends View {
         float margin = cellSize/10;
 
         canvas.drawRect(
-                player.col*cellSize+margin,
-                    player.row*cellSize+margin,
-                    (player.col+1)*cellSize-margin,
-                    (player.row+1)*cellSize-margin,
+                players[0].col*cellSize+margin,
+                players[0].row*cellSize+margin,
+                    (players[0].col+1)*cellSize-margin,
+                    (players[0].row+1)*cellSize-margin,
                     playerPaint
         );
 
         canvas.drawRect(
-                player1.col*cellSize+margin,
-                player1.row*cellSize+margin,
-                (player1.col+1)*cellSize-margin,
-                (player1.row+1)*cellSize-margin,
+                players[1].col*cellSize+margin,
+                players[1].row*cellSize+margin,
+                (players[1].col+1)*cellSize-margin,
+                (players[1].row+1)*cellSize-margin,
                 player1Paint
         );
 
         canvas.drawRect(
-                player2.col*cellSize+margin,
-                player2.row*cellSize+margin,
-                (player2.col+1)*cellSize-margin,
-                (player2.row+1)*cellSize-margin,
+                players[2].col*cellSize+margin,
+                players[2].row*cellSize+margin,
+                (players[2].col+1)*cellSize-margin,
+                (players[2].row+1)*cellSize-margin,
                 player2Paint
         );
 
@@ -381,7 +431,7 @@ public class MazeView extends View {
                 exitPaint
         );
         searchPath(cells,0,0,path);
-        canvas.translate(hMargin - cellSize/2,vMargin);
+        canvas.translate(hMargin,vMargin - 2.5f*cellSize);
 
         //Drawing path
         pathPaint.setStrokeWidth(4);
@@ -420,13 +470,36 @@ public class MazeView extends View {
         bottomWall = true,
         rightWall = true,
         visited = false,
-        pathVisited = false;
+        pathVisited = false,
+        nextVisited = false;
 
         int col, row;
 
         Cell(int col, int row) {
             this.col = col;
             this.row = row;
+        }
+    }
+
+    public class MyThread extends Thread {
+        int n;
+        MyThread(int n) {
+            this.n = n;
+        }
+        @Override
+        public void run() {
+            try {
+                ((Activity)getContext()).runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        movement(n);
+                        invalidate();
+                    }
+                });
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 
