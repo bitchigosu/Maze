@@ -1,16 +1,11 @@
 package com.example.konstantin.maze;
 
-import android.content.Intent;
-import android.support.v4.app.NavUtils;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
-import android.widget.Toast;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -25,8 +20,8 @@ public class SettingsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_settings);
 
 
-        maze = new MazeView(this,null);
-        spinner = (Spinner)findViewById(R.id.spinner);
+        maze = new MazeView(this, null);
+        spinner = (Spinner) findViewById(R.id.spinner);
         ArrayAdapter<?> adapter =
                 ArrayAdapter.createFromResource(this, R.array.playersNum, android.R.layout.simple_spinner_item);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -39,6 +34,7 @@ public class SettingsActivity extends AppCompatActivity {
                 String choose = parent.getItemAtPosition(selectedItemPosition).toString();
                 pQuantity = Integer.parseInt(choose);
             }
+
             public void onNothingSelected(AdapterView<?> parent) {
             }
         });

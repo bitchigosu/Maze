@@ -1,19 +1,20 @@
 package com.example.konstantin.maze;
 
-import android.app.Activity;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.support.annotation.Nullable;
 import android.util.AttributeSet;
-
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Stack;
 
@@ -21,29 +22,30 @@ import static com.example.konstantin.maze.MainActivity.handler1;
 
 public class MazeView extends View {
 
-    Canvas canvas;
+    private final int N = 3;
 
-    private final List<Integer> path = new ArrayList<>();
-    private final List<Integer> path1 = new ArrayList<>();
-    private final List<Integer> path2 = new ArrayList<>();
-    ArrayList<Cell> neighbours;
-
-    private Cell[][] cells;
-    public Cell player, exit, player1, player2;
-    private Cell[] players;
     public static final int COLS = 15, ROWS = 15;
     private static final float WALL_THICKNESS = 4;
+    private final List<Integer> path = new ArrayList<>();
+    public Cell exit;
+    public int[] pathSize;
+    Canvas canvas;
+    ArrayList<Cell> neighbours;
+
+    boolean start = false;
+    private Cell[][] cells;
     private float cellSize, hMargin, vMargin;
     private Paint wallPaint, playerPaint, exitPaint, pathPaint, player1Paint, player2Paint, wall1Paint, visitedPath;
     private Random random;
-    private volatile int delay = 500;
-    private Runnable runnable1,runnable2,runnable3;
+    private volatile int delay = 100;
     private Runnable[] runnable;
-    MyThread thread1,thread2, thread3;
-    MyThread threads[];
-    volatile boolean[] isAlive;
-    public int path1Size, path2Size;
 
+    volatile private Cell[] players;
+    volatile MyThread threads[];
+    volatile boolean[] busy, isLive;
+    volatile List<Integer>[] paths, nextPaths;
+    volatile Queue<Integer> qOfNotVisitedCells;
+    volatile boolean firstTimeWalking = true;
 
     public MazeView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
@@ -74,6 +76,7 @@ public class MazeView extends View {
         visitedPath.setColor(Color.WHITE);
 
         random = new Random();
+
         createMaze();
     }
 
@@ -82,6 +85,7 @@ public class MazeView extends View {
             threads[n] = new MyThread();
             threads[n].setN(n);
         }
+        isLive[0] = true;
         threads[n].start();
     }
 
@@ -95,10 +99,31 @@ public class MazeView extends View {
         return false;
     }
 
+
+    private int calculateDistance (int destX, int destY, List<Integer> freePlayers) {
+        List<Integer> distances = new ArrayList<>();
+        int closestPlayer = 0;
+        for (int pl : freePlayers) {
+            nextPaths[pl] = new ArrayList<>();
+            searchPath(cells,players[pl].col, players[pl].row, destX, destY, nextPaths[pl], pl);
+            distances.add(nextPaths[pl].size() - 1);
+            resetSearchPath(pl);
+        }
+        closestPlayer = freePlayers.get(distances.indexOf(Math.min(distances.get(0), distances.get(distances.size() - 1))));
+        busy[closestPlayer] = true;
+        return closestPlayer;
+    }
+
+    private void resetSearchPath(int n) {
+        for (int x = 0; x < COLS; x ++)
+            for (int y = 0; y < ROWS; y++)
+                cells[x][y].pathVisited[n] = false;
+    }
+
     private boolean searchPath(Cell[][] maze, int x, int y, int destX, int destY
             , List<Integer> path, int n) {
 
-        int dx,dy;
+        int dx, dy;
 
         if (maze[x][y] == cells[destX][destY]) {  //if path point equals exit point - we found the path
             path.add(x);
@@ -154,134 +179,198 @@ public class MazeView extends View {
     }
 
     private void moveThreads(int n, int x, int y) {
-        if (n < 3) {
-            if (threads[n] == null) {
-                threads[n] = new MyThread();
-            }
+        if (n < N) {
             threads[n].setN(n);
-            if (!isAlive[n]) {
-                switch (n) {
-                    case 1:
-                            searchPath(cells, players[n].row, players[n].col, x, y, path1, n);
-                            path1Size = path1.size() - 1;
-                            threads[1].start();
-                            break;
-
-                    case 2:
-                            searchPath(cells, players[n].row, players[n].col, x, y, path2, n);
-                            path2Size = path2.size() - 1;
-                            threads[2].start();
-                            break;
-                }
-
-            }
+            pathSize[n] = nextPaths[n].size() - 1;
+            isLive[n] = true;
+            threads[n].start();
         }
     }
 
-    private void moveByPath1(int n,int i) {
+    private List<Integer> takeAllFreePlayers() {
+        List<Integer> freePlayersId = new ArrayList<>();
+        for (int i = 0; i < N; i++) {
+            if (!busy[i])
+                freePlayersId.add(i);
+        }
+        return freePlayersId;
+    }
+
+    private void moveByPath1(int n, int i) {
         try {
-            players[n].busy = true;
-            players[n] = cells[path1.get(i - 1)][path1.get(i)];
+            busy[n] = true;
+            players[n] = cells[nextPaths[n].get(i - 3)][nextPaths[n].get(i - 2)];
             players[n].goalVisited[n] = true;
             players[n].toVisit = true;
-            if (i == 0 || i == 1) {
-                players[n].busy = false;
-               // players[n] = cells[path1.get(0)][path1.get(1)];
-            }
+            checkForNotVisitedCells(n);
         } catch (IndexOutOfBoundsException e) {
-            //players[n] = cells[path1.get(0)][path1.get(1)];
-            players[n].busy = false;
-            threads[n] = null;
-            moveByPath(n);
+           // movement1(n);
         }
     }
 
-    private void moveByPath2(int n,int i) {
-        try {
-            players[n] = cells[path2.get(i - 1)][path2.get(i)];
-            players[n].goalVisited[n] = true;
-            players[n].toVisit = true;
-            if (i == 0 || i == 1) {
-                players[n].busy = false;
-                // players[n] = cells[path1.get(0)][path1.get(1)];
-            }
-        } catch (IndexOutOfBoundsException e) {
-           // players[n] = cells[path2.get(0)][path2.get(1)];
-            players[n].busy = false;
-            threads[n] = null;
-            moveByPath(n);
+    private void checkForNotVisitedCells(int n) {
+        if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].toVisit && !players[n].topWall && (nextPaths[n].get(0) != players[n].col && nextPaths[n].get(1) != players[n].row - 1)) {
+            qOfNotVisitedCells.add(players[n].col);
+            qOfNotVisitedCells.add(players[n].row - 1);
+        }
+        if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].toVisit && !players[n].rightWall && (nextPaths[n].get(0) != players[n].col + 1 && nextPaths[n].get(1) != players[n].row)) {
+            qOfNotVisitedCells.add(players[n].col + 1);
+            qOfNotVisitedCells.add(players[n].row);
+        }
+        if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].toVisit && !players[n].leftWall && !players[n].rightWall && (nextPaths[n].get(0) != players[n].col - 1 && nextPaths[n].get(1) != players[n].row)) {
+            qOfNotVisitedCells.add(players[n].col - 1);
+            qOfNotVisitedCells.add(players[n].row);
+        }
+        if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].toVisit && !players[n].bottomWall && !players[n].rightWall && (nextPaths[n].get(0) != players[n].col && nextPaths[n].get(1) != players[n].row + 1)) {
+            qOfNotVisitedCells.add(players[n].col);
+            qOfNotVisitedCells.add(players[n].row + 1);
         }
     }
 
     private void movement1(final int n) throws ArrayIndexOutOfBoundsException {
-        if (n <= 2) {
-                invalidate();
-                if (!players[n].bottomWall && !cells[players[n].col][players[n].row + 1].toVisit) {
-                    cells[players[n].col][players[n].row + 1].toVisit = true;
-                    if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].toVisit && !players[n].topWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col,players[n].row - 1);
-                        moveThreads(n + 1,players[n].col,players[n].row - 1);
-                    } else if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].toVisit && !players[n].rightWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col + 1,players[n].row);
-                        moveThreads(n + 1,players[n].col + 1,players[n].row);
-                    } else if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].toVisit && !players[n].leftWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col - 1, players[n].row);
-                        moveThreads(n + 1,players[n].col - 1, players[n].row);
-                    }
-                    players[n] = cells[players[n].col][players[n].row + 1];
-
-                } else if (!players[n].rightWall && !cells[players[n].col + 1][players[n].row].toVisit) {
-                    cells[players[n].col + 1][players[n].row].toVisit = true;
-                    if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].toVisit && !players[n].topWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col,players[n].row - 1);
-                        moveThreads(n + 1,players[n].col,players[n].row - 1);
-                    } else if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].toVisit && !players[n].bottomWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col,players[n].row + 1);
-                        moveThreads(n + 1,players[n].col,players[n].row + 1);
-                    } else if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].toVisit && !players[n].leftWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col - 1,players[n].row);
-                        moveThreads(n + 1,players[n].col - 1,players[n].row);
-                    }
-                    players[n] = cells[players[n].col + 1][players[n].row];
-                } else if (!players[n].topWall && !cells[players[n].col][players[n].row - 1].toVisit) {
-                    cells[players[n].col][players[n].row - 1].toVisit = true;
-                    if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].toVisit && !players[n].bottomWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col,players[n].row + 1);
-                        moveThreads(n + 1,players[n].col,players[n].row + 1);
-                    } else if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].toVisit && !players[n].rightWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col,players[n].row + 1);
-                        moveThreads(n + 1,players[n].col + 1,players[n].row);
-                    } else if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].toVisit && !players[n].leftWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col,players[n].row + 1);
-                        moveThreads(n + 1,players[n].col - 1,players[n].row);
-                    }
-                    players[n] = cells[players[n].col][players[n].row - 1];
-                } else if (!players[n].leftWall && !cells[players[n].col - 1][players[n].row].toVisit) {
-                    cells[players[n].col - 1][players[n].row].toVisit = true;
-                    if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].toVisit && !players[n].topWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col,players[n].row - 1);
-                        moveThreads(n + 1,players[n].col,players[n].row - 1);
-                    } else if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].toVisit && !players[n].rightWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col,players[n].row - 1);
-                        moveThreads(n + 1,players[n].col + 1,players[n].row);
-                    } else if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].toVisit && !players[n].bottomWall) {
-                        if (!players[n+1].busy)
-                            moveThreads(n + 2,players[n].col,players[n].row - 1);
-                        moveThreads(n + 1,players[n].col,players[n].row + 1);
-                    }
-                    players[n] = cells[players[n].col - 1][players[n].row];
+        if (n <= (N - 1)) {
+            invalidate();
+            if (tooPick(n) && start) {
+                try {
+                    int x = qOfNotVisitedCells.remove();
+                    int y = qOfNotVisitedCells.remove();
+                    nextPaths[n] = new ArrayList<>();
+                    firstTimeWalking = false;
+                    searchPath(cells, players[n].col, players[n].row, x, y, nextPaths[n], n);
+                    resetSearchPath(n);
+                    moveThreads(n, x, y);
+                } catch (NoSuchElementException e) {
+                    busy[n] = false;
+                    isLive[n] = false;
                 }
+
+                /*while (players[n].toVisit && !((!players[n].bottomWall && !cells[players[n].col][players[n].row + 1].toVisit)
+                || (!players[n].rightWall && !cells[players[n].col + 1][players[n].row].toVisit)
+                || (!players[n].topWall && !cells[players[n].col][players[n].row - 1].toVisit)
+                || (!players[n].leftWall && !cells[players[n].col - 1][players[n].row].toVisit))) {
+                    players[n] = myPath.pop();
+                    if (myPath.empty()) {
+                        break;
+                    }
+                }*/
+            }
+            start = true;
+            if (!players[n].bottomWall && !cells[players[n].col][players[n].row + 1].toVisit) {
+                cells[players[n].col][players[n].row + 1].toVisit = true;
+                if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].toVisit && !players[n].topWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col);
+                        qOfNotVisitedCells.add(players[n].row - 1);
+                    } else {
+                        int p = calculateDistance(players[n].col, players[n].row - 1, takeAllFreePlayers());
+                        moveThreads(p, players[n].col, players[n].row - 1);
+                    }
+                } else if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].toVisit && !players[n].rightWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col + 1);
+                        qOfNotVisitedCells.add(players[n].row);
+                    } else {
+                        int p = calculateDistance(players[n].col + 1, players[n].row, takeAllFreePlayers());
+                        moveThreads(p, players[n].col + 1, players[n].row);
+                    }
+                } else if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].toVisit && !players[n].leftWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col - 1);
+                        qOfNotVisitedCells.add(players[n].row);
+                    } else {
+                        int p = calculateDistance(players[n].col - 1, players[n].row, takeAllFreePlayers());
+                        moveThreads(p, players[n].col - 1, players[n].row);
+                    }
+                }
+                players[n] = cells[players[n].col][players[n].row + 1];
+
+            } else if (!players[n].rightWall && !cells[players[n].col + 1][players[n].row].toVisit) {
+                cells[players[n].col + 1][players[n].row].toVisit = true;
+                if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].toVisit && !players[n].topWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col);
+                        qOfNotVisitedCells.add(players[n].row - 1);
+                    } else {
+                        int p = calculateDistance(players[n].col, players[n].row - 1, takeAllFreePlayers());
+                        moveThreads(p, players[n].col, players[n].row - 1);
+                    }
+                } else if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].toVisit && !players[n].bottomWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col);
+                        qOfNotVisitedCells.add(players[n].row + 1);
+                    } else {
+                        int p = calculateDistance(players[n].col, players[n].row + 1, takeAllFreePlayers());
+                        moveThreads(p, players[n].col, players[n].row + 1);
+                    }
+                } else if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].toVisit && !players[n].leftWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col - 1);
+                        qOfNotVisitedCells.add(players[n].row);
+                    } else {
+                        int p = calculateDistance(players[n].col - 1, players[n].row, takeAllFreePlayers());
+                        moveThreads(p, players[n].col - 1, players[n].row);
+                    }
+                }
+                players[n] = cells[players[n].col + 1][players[n].row];
+
+            } else if (!players[n].topWall && !cells[players[n].col][players[n].row - 1].toVisit) {
+                cells[players[n].col][players[n].row - 1].toVisit = true;
+                if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].toVisit && !players[n].bottomWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col);
+                        qOfNotVisitedCells.add(players[n].row + 1);
+                    } else {
+                        int p = calculateDistance(players[n].col, players[n].row + 1, takeAllFreePlayers());
+                        moveThreads(p, players[n].col, players[n].row + 1);
+                    }
+                } else if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].toVisit && !players[n].rightWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col + 1);
+                        qOfNotVisitedCells.add(players[n].row);
+                    } else {
+                        int p = calculateDistance(players[n].col + 1, players[n].row, takeAllFreePlayers());
+                        moveThreads(p, players[n].col + 1, players[n].row);
+                    }
+                } else if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].toVisit && !players[n].leftWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col - 1);
+                        qOfNotVisitedCells.add(players[n].row);
+                    } else {
+                        int p = calculateDistance(players[n].col - 1, players[n].row, takeAllFreePlayers());
+                        moveThreads(p, players[n].col - 1, players[n].row);
+                    }
+                }
+                players[n] = cells[players[n].col][players[n].row - 1];
+
+            } else if (!players[n].leftWall && !cells[players[n].col - 1][players[n].row].toVisit) {
+                cells[players[n].col - 1][players[n].row].toVisit = true;
+                if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].toVisit && !players[n].topWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col);
+                        qOfNotVisitedCells.add(players[n].row - 1);
+                    } else {
+                        int p = calculateDistance(players[n].col, players[n].row - 1, takeAllFreePlayers());
+                        moveThreads(p, players[n].col, players[n].row - 1);
+                    }
+                } else if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].toVisit && !players[n].rightWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col + 1);
+                        qOfNotVisitedCells.add(players[n].row);
+                    } else {
+                        int p = calculateDistance(players[n].col + 1, players[n].row, takeAllFreePlayers());
+                        moveThreads(p, players[n].col + 1, players[n].row);
+                    }
+                } else if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].toVisit && !players[n].bottomWall) {
+                    if (takeAllFreePlayers().isEmpty()) {
+                        qOfNotVisitedCells.add(players[n].col);
+                        qOfNotVisitedCells.add(players[n].row + 1);
+                    } else {
+                        int p = calculateDistance(players[n].col, players[n].row + 1, takeAllFreePlayers());
+                        moveThreads(p, players[n].col, players[n].row + 1);
+                    }
+                }
+                players[n] = cells[players[n].col - 1][players[n].row];
+            }
             invalidate();
         }
     }
@@ -299,24 +388,24 @@ public class MazeView extends View {
     private Cell getNeighbour(Cell cell) {
         neighbours = new ArrayList<>();
         //left neighbour
-        if(cell.col>0)
-            if (!cells[cell.col-1][cell.row].visited) {
-                neighbours.add(cells[cell.col-1][cell.row]);
-        }
+        if (cell.col > 0)
+            if (!cells[cell.col - 1][cell.row].visited) {
+                neighbours.add(cells[cell.col - 1][cell.row]);
+            }
         //right
-        if(cell.col < COLS-1)
-            if (!cells[cell.col+1][cell.row].visited) {
+        if (cell.col < COLS - 1)
+            if (!cells[cell.col + 1][cell.row].visited) {
                 neighbours.add(cells[cell.col + 1][cell.row]);
             }
         //top
-        if(cell.row>0)
-            if (!cells[cell.col][cell.row-1].visited) {
-                neighbours.add(cells[cell.col][cell.row-1]);
+        if (cell.row > 0)
+            if (!cells[cell.col][cell.row - 1].visited) {
+                neighbours.add(cells[cell.col][cell.row - 1]);
             }
         //bottom
-        if(cell.row < ROWS-1)
-            if (!cells[cell.col][cell.row+1].visited) {
-                neighbours.add(cells[cell.col][cell.row+1]);
+        if (cell.row < ROWS - 1)
+            if (!cells[cell.col][cell.row + 1].visited) {
+                neighbours.add(cells[cell.col][cell.row + 1]);
             }
 
         if (neighbours.size() > 0) {
@@ -327,11 +416,11 @@ public class MazeView extends View {
     }
 
     private void removeWall(Cell current, Cell next) {
-        if (current.col == next.col && current.row == next.row+1) {
+        if (current.col == next.col && current.row == next.row + 1) {
             current.topWall = false;
             next.bottomWall = false;
         }
-        if (current.col == next.col && current.row == next.row-1) {
+        if (current.col == next.col && current.row == next.row - 1) {
             current.bottomWall = false;
             next.topWall = false;
         }
@@ -351,26 +440,36 @@ public class MazeView extends View {
 
         cells = new Cell[COLS][ROWS];
 
-        for (int i = 0; i < COLS;i++) {
-            for (int j = 0; j < ROWS;j++) {
-                cells[i][j] = new Cell(i,j);
+        for (int i = 0; i < COLS; i++) {
+            for (int j = 0; j < ROWS; j++) {
+                cells[i][j] = new Cell(i, j);
             }
         }
-        runnable = new Runnable[] {runnable1,runnable2,runnable3};
-        threads = new MyThread[] {thread1,thread2,thread3};
-        isAlive = new boolean[3];
 
-        player = cells[0][0];
-        player1 = cells[0][0];
-        player2 = cells[0][0];//player's position
-        exit = cells[COLS-1][ROWS-1]; //finish position
+        players = new Cell[N];
+        paths = new ArrayList[N];
+        nextPaths = new ArrayList[N];
+        pathSize = new int[N];
+        threads = new MyThread[N];
+        runnable = new Runnable[N];
+        busy = new boolean[N];
+        isLive = new boolean[N];
+        qOfNotVisitedCells = new LinkedList<>();
+        exit = cells[COLS - 1][ROWS - 1]; //finish position
 
-        players = new Cell[] {player, player1, player2};
+
+        for (int i = 0; i < N; i++) {
+            players[i] = cells[0][0];
+            players[i].toVisit = true;
+            busy[i] = false;
+            paths[i] = new ArrayList<>();
+            nextPaths[i] = new ArrayList<>();
+            threads[i] = new MyThread();
+        }
+
         current = cells[0][0]; //start creating maze from this point
         current.visited = true;
-        for(int i = 0; i < 3; i ++) {
-            players[i].toVisit = true;
-        }
+
         do {
             next = getNeighbour(current);
             if (next != null) { //if we find the neighbour
@@ -386,111 +485,112 @@ public class MazeView extends View {
 
     private void drawVisitedPath(Canvas canvas, int i, int j) {
         canvas.drawRect(
-                i*cellSize,
-                j*cellSize,
-                (i+1)*cellSize,
-                (j+1)*cellSize,
+                i * cellSize,
+                j * cellSize,
+                (i + 1) * cellSize,
+                (j + 1) * cellSize,
                 visitedPath
         );
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
+
         this.canvas = canvas;
         canvas.drawColor(Color.WHITE);
 
         int width = getWidth();
         int height = getHeight();
 
-        if (width/height < COLS/ROWS) {
-            cellSize = width / (COLS +1);
+        if (width / height < COLS / ROWS) {
+            cellSize = width / (COLS + 1);
         } else {
-            cellSize = height/(ROWS+1);
+            cellSize = height / (ROWS + 1);
         }
 
-        hMargin = (width - COLS*cellSize) / 2;
-        vMargin = (height - ROWS*cellSize) / 2;
+        hMargin = (width - COLS * cellSize) / 2;
+        vMargin = (height - ROWS * cellSize) / 2;
 
-        canvas.translate(hMargin,vMargin);
+        canvas.translate(hMargin, vMargin);
         canvas.drawRect(0,
                 0,
                 COLS * cellSize,
-                ROWS  * cellSize,
+                ROWS * cellSize,
                 wall1Paint
         );
 
-        for (int i = 0; i < COLS;i++) {
-            for (int j = 0; j < ROWS;j++) {
-                if(cells[i][j].toVisit)
-                    drawVisitedPath(canvas,i,j);
+        for (int i = 0; i < COLS; i++) {
+            for (int j = 0; j < ROWS; j++) {
+                if (cells[i][j].toVisit)
+                    drawVisitedPath(canvas, i, j);
                 if (cells[i][j].topWall)
                     canvas.drawLine(
-                            i*cellSize,
-                            j*cellSize,
-                            (i+1)*cellSize,
-                            j*cellSize,
+                            i * cellSize,
+                            j * cellSize,
+                            (i + 1) * cellSize,
+                            j * cellSize,
                             wallPaint);
 
                 if (cells[i][j].bottomWall)
                     canvas.drawLine(
-                            i*cellSize,
-                            (j+1)*cellSize,
-                            (i+1)*cellSize,
-                            (j+1)*cellSize,
+                            i * cellSize,
+                            (j + 1) * cellSize,
+                            (i + 1) * cellSize,
+                            (j + 1) * cellSize,
                             wallPaint);
                 if (cells[i][j].leftWall)
                     canvas.drawLine(
-                            i*cellSize,
-                            j*cellSize,
-                            i*cellSize,
-                            (j+1)*cellSize,
+                            i * cellSize,
+                            j * cellSize,
+                            i * cellSize,
+                            (j + 1) * cellSize,
                             wallPaint);
                 if (cells[i][j].rightWall)
                     canvas.drawLine(
-                            (i+1)*cellSize,
-                            j*cellSize,
-                            (i+1)*cellSize,
-                            (j+1)*cellSize,
+                            (i + 1) * cellSize,
+                            j * cellSize,
+                            (i + 1) * cellSize,
+                            (j + 1) * cellSize,
                             wallPaint);
             }
         }
 
-        float margin = cellSize/10;
+        float margin = cellSize / 10;
 
         canvas.drawRect(
-                players[0].col*cellSize+margin,
-                players[0].row*cellSize+margin,
-                    (players[0].col+1)*cellSize-margin,
-                    (players[0].row+1)*cellSize-margin,
-                    playerPaint
+                players[0].col * cellSize + margin,
+                players[0].row * cellSize + margin,
+                (players[0].col + 1) * cellSize - margin,
+                (players[0].row + 1) * cellSize - margin,
+                playerPaint
         );
 
         canvas.drawRect(
-                players[1].col*cellSize+margin,
-                players[1].row*cellSize+margin,
-                (players[1].col+1)*cellSize-margin,
-                (players[1].row+1)*cellSize-margin,
+                players[1].col * cellSize + margin,
+                players[1].row * cellSize + margin,
+                (players[1].col + 1) * cellSize - margin,
+                (players[1].row + 1) * cellSize - margin,
                 player1Paint
         );
 
         canvas.drawRect(
-                players[2].col*cellSize+margin,
-                players[2].row*cellSize+margin,
-                (players[2].col+1)*cellSize-margin,
-                (players[2].row+1)*cellSize-margin,
+                players[2].col * cellSize + margin,
+                players[2].row * cellSize + margin,
+                (players[2].col + 1) * cellSize - margin,
+                (players[2].row + 1) * cellSize - margin,
                 player2Paint
         );
 
         canvas.drawRect(
-                exit.col*cellSize+margin,
-                exit.row*cellSize+margin,
-                (exit.col+1)*cellSize-margin,
-                (exit.row+1)*cellSize-margin,
+                exit.col * cellSize + margin,
+                exit.row * cellSize + margin,
+                (exit.col + 1) * cellSize - margin,
+                (exit.row + 1) * cellSize - margin,
                 exitPaint
         );
 
-        searchPath(cells,0,0,COLS-1,ROWS-1,path, 0);
-        canvas.translate(hMargin,vMargin - 2.5f*cellSize);
+        searchPath(cells, 0, 0, COLS - 1, ROWS - 1, path, 0);
+        canvas.translate(hMargin, vMargin - 2.5f * cellSize);
 
         //Drawing path
         for (int p = 0; p < path.size(); p += 2) {
@@ -508,8 +608,8 @@ public class MazeView extends View {
             } catch (IndexOutOfBoundsException e) {
                 int pathX = path.get(p);
                 int pathY = path.get(p + 1);
-                int pathXX = path.get(path.size()-2);
-                int pathYY = path.get(path.size()-1);
+                int pathXX = path.get(path.size() - 2);
+                int pathYY = path.get(path.size() - 1);
                 canvas.drawLine(
                         pathX * cellSize,
                         pathY * cellSize,
@@ -518,66 +618,55 @@ public class MazeView extends View {
                         pathPaint);
             }
         }
+        resetSearchPath(0);
     }
 
     public class Cell {
         boolean
-        topWall = true,
-        leftWall = true,
-        bottomWall = true,
-        rightWall = true,
-        visited = false;
+                topWall = true,
+                leftWall = true,
+                bottomWall = true,
+                rightWall = true,
+                visited = false;
         boolean toVisit;
-        boolean[] pathVisited = new boolean[3];
-        boolean[] goalVisited = new boolean[3];
-        volatile boolean busy = true;
+        boolean[] pathVisited = new boolean[N];
+        boolean[] goalVisited = new boolean[N];
 
-        int col, row;
+        volatile int col, row;
 
         Cell(int col, int row) {
             this.col = col;
             this.row = row;
+
         }
     }
 
     public class MyThread extends Thread {
         private int n;
+
         @Override
         public void run() {
-                handler1.postDelayed(runnable[n] = new Runnable() {
-                    @Override
-                    public void run() {
-                        isAlive[n] = true;
-                        switch (n) {
-                            case 0:
-                                movement1(n);
+            handler1.postDelayed(runnable[n] = new Runnable() {
+                @Override
+                public void run() {
+                    if (isLive[n]) {
+                        if (n == 0 && firstTimeWalking) {
+                            busy[0] = true;
+                            movement1(n);
+                            handler1.postDelayed(runnable[n], delay);
+                        } else {
+                            if (busy[n]) {
+                                moveByPath1(n, pathSize[n]);
+                                if (pathSize[n] >= 3)
+                                    pathSize[n] -= 2;
+                                else
+                                    movement1(n);
                                 handler1.postDelayed(runnable[n], delay);
-                                break;
-                                case 1:
-                                    if (players[n].busy) {
-                                            moveByPath1(1, path1Size);
-                                            path1Size -= 2;
-                                            handler1.postDelayed(runnable[n], delay);
-                                        } else {
-                                            players[n].busy = false;
-                                            movement1(n);
-                                            handler1.postDelayed(runnable[n], delay);
-                                        }
-                                        break;
-                                case 2:
-                                    if (players[n].busy) {
-                                            moveByPath2(2, path2Size);
-                                            path2Size -= 2;
-                                            handler1.postDelayed(runnable[n], delay);
-                                        } else {
-                                            players[n].busy = false;
-                                            movement1(n);
-                                            handler1.postDelayed(runnable[n], delay);
-                                        }
-                                        break;
+                            }
                         }
                     }
-                }, delay);
+                }
+            }, delay);
         }
 
         public void setN(int n) {

@@ -1,26 +1,19 @@
 package com.example.konstantin.maze;
 
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Point;
-import android.graphics.Rect;
+import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
+
+import java.util.Queue;
 
 public class MainActivity extends AppCompatActivity {
 
+    static Handler handler1 = new Handler();
     MazeView maze;
     Intent intent;
-    static Handler handler1 = new Handler();
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
         switch (item.getItemId()) {
             case R.id.action_restart:
                 setContentView(R.layout.activity_main);
+
                 break;
             case R.id.action_settings:
                 intent = new Intent(this, SettingsActivity.class);
