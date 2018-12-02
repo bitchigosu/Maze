@@ -22,7 +22,7 @@ import static com.example.konstantin.maze.MainActivity.handler1;
 
 public class MazeView extends View {
 
-    private final int N = 3;
+    private final int N = 1;
 
     public static final int COLS = 15, ROWS = 15;
     private static final float WALL_THICKNESS = 4;
@@ -33,7 +33,7 @@ public class MazeView extends View {
     ArrayList<Cell> neighbours;
 
     boolean start = false;
-    private Cell[][] cells;
+    private Cell[][] cells, shittyCells;
     private float cellSize, hMargin, vMargin;
     private Paint wallPaint, playerPaint, exitPaint, pathPaint, player1Paint, player2Paint, wall1Paint, visitedPath;
     private Random random;
@@ -74,6 +74,9 @@ public class MazeView extends View {
 
         visitedPath = new Paint();
         visitedPath.setColor(Color.WHITE);
+
+        cells = new Cell[COLS][ROWS];
+        shittyCells = new Cell[COLS][ROWS];
 
         random = new Random();
 
@@ -178,14 +181,20 @@ public class MazeView extends View {
         return false;
     }
 
-    private void moveThreads(int n, int x, int y) {
+    private void moveThreads(final int n, int x, int y) {
         if (n < N) {
             threads[n].setN(n);
             pathSize[n] = nextPaths[n].size() - 1;
             isLive[n] = true;
             threads[n].start();
+            try {
+                threads[n].join();
+            } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
         }
-    }
+
 
     private List<Integer> takeAllFreePlayers() {
         List<Integer> freePlayersId = new ArrayList<>();
@@ -204,26 +213,30 @@ public class MazeView extends View {
             players[n].toVisit = true;
             checkForNotVisitedCells(n);
         } catch (IndexOutOfBoundsException e) {
-           // movement1(n);
+            // movement1(n);
         }
     }
 
     private void checkForNotVisitedCells(int n) {
-        if (players[n].row != 0 && !cells[players[n].col][players[n].row - 1].toVisit && !players[n].topWall && (nextPaths[n].get(0) != players[n].col && nextPaths[n].get(1) != players[n].row - 1)) {
+        if (!shittyCells[players[n].col][players[n].row - 1].metka && players[n].row != 0 && !cells[players[n].col][players[n].row - 1].toVisit && !players[n].topWall && (nextPaths[n].get(0) != players[n].col && nextPaths[n].get(1) != players[n].row - 1)) {
             qOfNotVisitedCells.add(players[n].col);
             qOfNotVisitedCells.add(players[n].row - 1);
+            shittyCells[players[n].col][players[n].row - 1].metka = true;
         }
-        if (players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].toVisit && !players[n].rightWall && (nextPaths[n].get(0) != players[n].col + 1 && nextPaths[n].get(1) != players[n].row)) {
+        if (!shittyCells[players[n].col + 1][players[n].row].metka && players[n].col != COLS - 1 && !cells[players[n].col + 1][players[n].row].toVisit && !players[n].rightWall && (nextPaths[n].get(0) != players[n].col + 1 && nextPaths[n].get(1) != players[n].row)) {
             qOfNotVisitedCells.add(players[n].col + 1);
             qOfNotVisitedCells.add(players[n].row);
+            shittyCells[players[n].col + 1][players[n].row].metka = true;
         }
-        if (players[n].col != 0 && !cells[players[n].col - 1][players[n].row].toVisit && !players[n].leftWall && !players[n].rightWall && (nextPaths[n].get(0) != players[n].col - 1 && nextPaths[n].get(1) != players[n].row)) {
+        if (!shittyCells[players[n].col - 1][players[n].row].metka && players[n].col != 0 && !cells[players[n].col - 1][players[n].row].toVisit && !players[n].leftWall && !players[n].rightWall && (nextPaths[n].get(0) != players[n].col - 1 && nextPaths[n].get(1) != players[n].row)) {
             qOfNotVisitedCells.add(players[n].col - 1);
             qOfNotVisitedCells.add(players[n].row);
+            shittyCells[players[n].col - 1][players[n].row].metka = true;
         }
-        if (players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].toVisit && !players[n].bottomWall && !players[n].rightWall && (nextPaths[n].get(0) != players[n].col && nextPaths[n].get(1) != players[n].row + 1)) {
+        if (!shittyCells[players[n].col][players[n].row + 1].metka && players[n].row != ROWS - 1 && !cells[players[n].col][players[n].row + 1].toVisit && !players[n].bottomWall && !players[n].rightWall && (nextPaths[n].get(0) != players[n].col && nextPaths[n].get(1) != players[n].row + 1)) {
             qOfNotVisitedCells.add(players[n].col);
             qOfNotVisitedCells.add(players[n].row + 1);
+            shittyCells[players[n].col][players[n].row + 1].metka = true;
         }
     }
 
@@ -243,16 +256,6 @@ public class MazeView extends View {
                     busy[n] = false;
                     isLive[n] = false;
                 }
-
-                /*while (players[n].toVisit && !((!players[n].bottomWall && !cells[players[n].col][players[n].row + 1].toVisit)
-                || (!players[n].rightWall && !cells[players[n].col + 1][players[n].row].toVisit)
-                || (!players[n].topWall && !cells[players[n].col][players[n].row - 1].toVisit)
-                || (!players[n].leftWall && !cells[players[n].col - 1][players[n].row].toVisit))) {
-                    players[n] = myPath.pop();
-                    if (myPath.empty()) {
-                        break;
-                    }
-                }*/
             }
             start = true;
             if (!players[n].bottomWall && !cells[players[n].col][players[n].row + 1].toVisit) {
@@ -438,11 +441,10 @@ public class MazeView extends View {
         Stack<Cell> stack = new Stack<>();
         Cell current, next;
 
-        cells = new Cell[COLS][ROWS];
-
         for (int i = 0; i < COLS; i++) {
             for (int j = 0; j < ROWS; j++) {
                 cells[i][j] = new Cell(i, j);
+                shittyCells[i][j] = new Cell(i, j);
             }
         }
 
@@ -565,7 +567,7 @@ public class MazeView extends View {
                 playerPaint
         );
 
-        canvas.drawRect(
+/*        canvas.drawRect(
                 players[1].col * cellSize + margin,
                 players[1].row * cellSize + margin,
                 (players[1].col + 1) * cellSize - margin,
@@ -579,7 +581,7 @@ public class MazeView extends View {
                 (players[2].col + 1) * cellSize - margin,
                 (players[2].row + 1) * cellSize - margin,
                 player2Paint
-        );
+        );*/
 
         canvas.drawRect(
                 exit.col * cellSize + margin,
@@ -621,13 +623,14 @@ public class MazeView extends View {
         resetSearchPath(0);
     }
 
-    public class Cell {
-        boolean
+    class Cell {
+      volatile boolean
                 topWall = true,
                 leftWall = true,
                 bottomWall = true,
                 rightWall = true,
-                visited = false;
+                visited = false,
+        metka = false;
         boolean toVisit;
         boolean[] pathVisited = new boolean[N];
         boolean[] goalVisited = new boolean[N];
@@ -659,8 +662,10 @@ public class MazeView extends View {
                                 moveByPath1(n, pathSize[n]);
                                 if (pathSize[n] >= 3)
                                     pathSize[n] -= 2;
-                                else
+                                else {
+                                    nextPaths[n].clear();
                                     movement1(n);
+                                }
                                 handler1.postDelayed(runnable[n], delay);
                             }
                         }
