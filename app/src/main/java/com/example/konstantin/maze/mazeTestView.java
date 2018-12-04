@@ -37,7 +37,7 @@ public class mazeTestView extends View {
     private float cellSize, hMargin, vMargin;
     Queue<Integer> cellToMove, cellsToRemember;
     boolean allCellsAreVisited, iAmMoving;
-    volatile List<Integer>[] pathList;
+    volatile List<Integer>[] pathList, templist;
     MyThread[] threads;
     int[][] distances, closestPlayer;
     volatile Queue<Integer> qAll;
@@ -75,6 +75,7 @@ public class mazeTestView extends View {
         moving = new boolean[N];
         cellToMove = new LinkedList<>();
         pathList = new ArrayList[N];
+        templist = new ArrayList[N];
         cellsToRemember = new LinkedList<>();
         allCellsAreVisited = false;
         threads = new MyThread[N];
@@ -92,6 +93,7 @@ public class mazeTestView extends View {
             players[i].toVisit = true;
             threads[i] = new MyThread();
             pathList[i] = new ArrayList<>();
+            templist[i] = new ArrayList<>();
         }
 
         createMaze();
@@ -167,40 +169,38 @@ public class mazeTestView extends View {
     }
 
     private void startThreads() {
-       Thread t1 = new Thread(new Runnable() {
+        Thread t1 = new Thread(new Runnable() {
             @Override
             public void run() {
                 movement2();
-                for (int i = 0; i < N; i++)
-                    if (pathList[i].size() != 0 && moving[i]) {
-                        final int finalI = i;
-                        new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            newMovement(finalI);
-                        }
-                    }).start();
-
-                }
             }
         });
-       t1.start();
-        try {
-            t1.join();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
 
+        Thread t2 = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                for (int i = 0; i < N; i++)
+                    if (pathList[i].size() != 0 && moving[i]) {
+                        newMovement(i);
+                    }
+            }
+        });
+        t1.start();
     }
+
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN
                 || event.getAction() == MotionEvent.ACTION_MOVE) {
+           // startThreads();
+            movement2();
+            if (!pathList[0].isEmpty())
+                newMovement(0);
+            if (!pathList[1].isEmpty())
+                newMovement(1);
             if (isAllCellsAreVisited())
                 Toast.makeText(getContext(),"All cells are visited!",Toast.LENGTH_LONG).show();
-            startThreads();
-            movement2();
             invalidate();
             return true;
         }
@@ -307,9 +307,9 @@ public class mazeTestView extends View {
             for (int i = 0; i < COLS; i++) {
                 for (int j = 0; j < ROWS; j++) {
                     for (int k : freePlayers) {
-                        if (!cells[i][j].mVisited[k] && !cells[i][j].mVisited[0]) {
-                            searchPath(cells, players[k].col, players[k].row, i, j, pathList[k], k);
-                            temp.add(pathList[k].size() - 1);
+                        if (!cells[i][j].mVisited[1] && !cells[i][j].mVisited[0]) {
+                            searchPath(cells, players[k].col, players[k].row, i, j, templist[k], k);
+                            temp.add(templist[k].size() - 1);
                         }
                     }
                     if (temp.size() == 0)
@@ -318,7 +318,8 @@ public class mazeTestView extends View {
                     distances[i][j] = min;
                     closestPlayer[i][j] = freePlayers.get(temp.indexOf(min));
                     temp.clear();
-                    pathList[closestPlayer[i][j]].clear();
+                    templist[1].clear();
+                    templist[0].clear();
                     resetSearchPath();
                 }
             }
@@ -335,12 +336,11 @@ public class mazeTestView extends View {
         return minPlayer;
     }
 
-    private synchronized void movement2() {
+    private void movement2() {
         int minPlayer = halfMovement();
         if (minPlayer != -1) {
             newMovement(minPlayer);
         }
-
         List<Integer> freePlayers = takeAllFreePlayers();
 
         if (freePlayers.size() > 0 && qAll.size() > 0) {
@@ -348,16 +348,18 @@ public class mazeTestView extends View {
             int x = qAll.remove();
             int y = qAll.remove();
             for (int k : freePlayers) {
-                pathList[k].clear();
-                searchPath(cells, players[k].col, players[k].row, x, y, pathList[k], k);
-                temp.add(pathList[k].size() - 1);
+                templist[k].removeAll(templist[k]);
+                searchPath(cells, players[k].col, players[k].row, x, y, templist[k], k);
+                temp.add(templist[k].size() - 1);
             }
             if (temp.size() == 0)
                 return;
             int min = Math.min(temp.get(0), temp.get(temp.size() - 1));
             int pl = freePlayers.get(temp.indexOf(min));
+            templist[pl].removeAll(templist[pl]);
+            searchPath(cells,players[pl].col,players[pl].row, x, y, pathList[pl], pl);
+            busy[pl] = true;
             newMovement(pl);
-
         }
     }
 
@@ -366,15 +368,14 @@ public class mazeTestView extends View {
             try {
                 int i = pathList[n].size() - 1;
                 players[n] = cells[pathList[n].get(i - 1)][pathList[n].get(i)];
+                pathList[n].remove(pathList[n].size() - 1);
+                pathList[n].remove(pathList[n].size() - 1);
                 players[n].toVisit = true;
                 players[n].mVisited[n] = true;
                 moving[n] = true;
-                pathList[n].remove(pathList[n].size() - 1);
-                pathList[n].remove(pathList[n].size() - 1);
                 if (pathList[n].size() == 0) {
                     moving[n] = false;
-                    pathList[n].clear();
-                    busy[n] = false;
+                    pathList[n].removeAll(pathList[n]);
                     threads[n].setRunning(false);
                 } else {
                     return;
@@ -382,7 +383,6 @@ public class mazeTestView extends View {
             } catch (IndexOutOfBoundsException e) {
                 pathList[n].clear();
                 moving[n] = false;
-                busy[n] = false;
                 threads[n].setRunning(false);
             }
         busy[n] = false;
@@ -417,14 +417,18 @@ public class mazeTestView extends View {
                             qAll.add(i);
                         }
                     }
-
-                    }
                 }
             }
+        }
         return minValue ;
     }
 
     private List<Integer> takeAllFreePlayers() {
+        for (int i = 0; i < N; i++)
+            if (pathList[i].isEmpty()) {
+               // moving[i] = false;
+                busy[i] = false;
+            }
         List<Integer> freePlayersId = new ArrayList<>();
         for (int i = 0; i < N; i++) {
             if (!busy[i])
