@@ -21,11 +21,11 @@ import java.util.Stack;
 import static com.example.konstantin.maze.MainActivity.handler1;
 
 public class mazeTestView extends View {
-    final int N = 2;
+    final int N = 3;
     final int delay = 500;
     int minX, minY;
 
-    public static final int COLS = 15, ROWS = 15;
+    public static final int COLS = 20, ROWS = 20;
     private static final float WALL_THICKNESS = 4;
     private Paint wallPaint, playerPaint,player1Paint, exitPaint, pathPaint, wall1Paint, visitedPath;
     private Random random;
@@ -193,12 +193,32 @@ public class mazeTestView extends View {
     public boolean onTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN
                 || event.getAction() == MotionEvent.ACTION_MOVE) {
-           // startThreads();
-            movement2();
-            if (!pathList[0].isEmpty())
-                newMovement(0);
-            if (!pathList[1].isEmpty())
-                newMovement(1);
+            if (!pathList[0].isEmpty()) {
+                MyThread t1 = new MyThread();
+                t1.setN(0);
+                t1.start();
+            } else
+                movement2();
+            if (!pathList[1].isEmpty()) {
+                MyThread t2 = new MyThread();
+                t2.setN(1);
+                t2.start();
+                movement2();
+            } else
+                movement2();
+            if (!pathList[2].isEmpty()) {
+                MyThread t3 = new MyThread();
+                t3.setN(2);
+                t3.start();
+            } else
+                movement2();
+/*            new Thread(new Runnable() {
+                @Override
+                public void run() {
+
+                }
+            }).start();*/
+
             if (isAllCellsAreVisited())
                 Toast.makeText(getContext(),"All cells are visited!",Toast.LENGTH_LONG).show();
             invalidate();
@@ -287,6 +307,14 @@ public class mazeTestView extends View {
                 player1Paint
         );
 
+        canvas.drawRect(
+                players[2].col * cellSize + margin,
+                players[2].row * cellSize + margin,
+                (players[2].col + 1) * cellSize - margin,
+                (players[2].row + 1) * cellSize - margin,
+                player1Paint
+        );
+
     }
 
     private void drawVisitedPath(Canvas canvas, int i, int j) {
@@ -307,7 +335,7 @@ public class mazeTestView extends View {
             for (int i = 0; i < COLS; i++) {
                 for (int j = 0; j < ROWS; j++) {
                     for (int k : freePlayers) {
-                        if (!cells[i][j].mVisited[1] && !cells[i][j].mVisited[0]) {
+                        if (!cells[i][j].mVisited[1] && !cells[i][j].mVisited[0] && !cells[i][j].mVisited[2]) {
                             searchPath(cells, players[k].col, players[k].row, i, j, templist[k], k);
                             temp.add(templist[k].size() - 1);
                         }
@@ -320,6 +348,7 @@ public class mazeTestView extends View {
                     temp.clear();
                     templist[1].clear();
                     templist[0].clear();
+                    templist[2].clear();
                     resetSearchPath();
                 }
             }
@@ -351,6 +380,7 @@ public class mazeTestView extends View {
                 templist[k].removeAll(templist[k]);
                 searchPath(cells, players[k].col, players[k].row, x, y, templist[k], k);
                 temp.add(templist[k].size() - 1);
+                templist[k].clear();
             }
             if (temp.size() == 0)
                 return;
@@ -524,19 +554,12 @@ public class mazeTestView extends View {
 
 
     public class MyThread extends Thread {
-        private int n;
+        private volatile int n;
         volatile boolean running;
 
         @Override
         public void run() {
-            while (running) {
-                newMovement(n);
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
+            newMovement(n);
         }
 
         public void setN(int n) {
