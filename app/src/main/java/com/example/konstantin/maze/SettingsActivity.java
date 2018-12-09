@@ -12,16 +12,13 @@ public class SettingsActivity extends AppCompatActivity {
     private Spinner spinner;
 
     private int pQuantity;
-    private MazeView maze;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
 
-
-        maze = new MazeView(this, null);
-        spinner = (Spinner) findViewById(R.id.spinner);
+        spinner = findViewById(R.id.spinner);
         ArrayAdapter<?> adapter =
                 ArrayAdapter.createFromResource(this, R.array.playersNum, android.R.layout.simple_spinner_item);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);

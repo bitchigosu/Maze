@@ -4,11 +4,21 @@
     <item
         android:id="@+id/action_settings"
         android:icon="@android:drawable/ic_menu_preferences"
-        android:title="Settings"
+        android:title="@string/settings_menu"
         android:visible="true" />
     <item
         android:id="@+id/action_restart"
         android:icon="@android:drawable/ic_menu_rotate"
-        android:title="Restart"
+        android:title="@string/restart_menu"
+        android:visible="true" />
+    <item
+        android:id="@+id/action_save"
+        android:icon="@android:drawable/checkbox_on_background"
+        android:title="@string/save_menu"
+        android:visible="true" />
+    <item
+        android:id="@+id/action_load"
+        android:icon="@android:drawable/checkbox_on_background"
+        android:title="@string/load_menu"
         android:visible="true" />
 </menu>

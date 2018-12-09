@@ -1,6 +1,5 @@
 package com.example.konstantin.maze;
 
-import android.app.Application;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -11,6 +10,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -18,31 +18,30 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.Stack;
 
-import static com.example.konstantin.maze.MainActivity.handler1;
-
-public class mazeTestView extends View {
-    final int N = 3;
-    final int delay = 500;
+public class MazeTestView extends View implements Serializable{
+    final static int N = 3;
     int minX, minY;
 
     public static final int COLS = 20, ROWS = 20;
     private static final float WALL_THICKNESS = 4;
-    private Paint wallPaint, playerPaint,player1Paint, exitPaint, pathPaint, wall1Paint, visitedPath;
+    private transient Paint wallPaint, playerPaint,player1Paint, exitPaint, pathPaint, wall1Paint, visitedPath;
     private Random random;
-    volatile private Cell[][] cells;
+    static volatile public Cell[][] cells;
     ArrayList<Cell> neighbours;
     Canvas canvas;
     volatile Cell[] players;
     boolean[] visitedBy, busy, moving;
     private float cellSize, hMargin, vMargin;
     Queue<Integer> cellToMove, cellsToRemember;
-    boolean allCellsAreVisited, iAmMoving;
+    boolean allCellsAreVisited;
     volatile List<Integer>[] pathList, templist;
     MyThread[] threads;
     int[][] distances, closestPlayer;
     volatile Queue<Integer> qAll;
+    static int[] stepCounter;
 
-    public mazeTestView(Context context, @Nullable AttributeSet attrs) {
+
+    public MazeTestView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
         wallPaint = new Paint();
         wallPaint.setColor(Color.BLACK);
@@ -73,6 +72,7 @@ public class mazeTestView extends View {
         visitedBy = new boolean[N];
         busy = new boolean[N];
         moving = new boolean[N];
+        stepCounter = new int[N];
         cellToMove = new LinkedList<>();
         pathList = new ArrayList[N];
         templist = new ArrayList[N];
@@ -168,57 +168,19 @@ public class mazeTestView extends View {
         }
     }
 
-    private void startThreads() {
-        Thread t1 = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                movement2();
-            }
-        });
-
-        Thread t2 = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                for (int i = 0; i < N; i++)
-                    if (pathList[i].size() != 0 && moving[i]) {
-                        newMovement(i);
-                    }
-            }
-        });
-        t1.start();
-    }
-
-
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN
-                || event.getAction() == MotionEvent.ACTION_MOVE) {
-            if (!pathList[0].isEmpty()) {
-                MyThread t1 = new MyThread();
-                t1.setN(0);
-                t1.start();
-            } else
-                movement2();
-            if (!pathList[1].isEmpty()) {
-                MyThread t2 = new MyThread();
-                t2.setN(1);
-                t2.start();
-                movement2();
-            } else
-                movement2();
-            if (!pathList[2].isEmpty()) {
-                MyThread t3 = new MyThread();
-                t3.setN(2);
-                t3.start();
-            } else
-                movement2();
-/*            new Thread(new Runnable() {
-                @Override
-                public void run() {
-
-                }
-            }).start();*/
-
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            for (int i = 0; i < N; i ++) {
+                if (!pathList[i].isEmpty()) {
+                    MyThread t2 = new MyThread();
+                    t2.setN(i);
+                    t2.start();
+                    movement2();
+                    stepCounter[i]++;
+                } else
+                    movement2();
+            }
             if (isAllCellsAreVisited())
                 Toast.makeText(getContext(),"All cells are visited!",Toast.LENGTH_LONG).show();
             invalidate();
@@ -361,6 +323,7 @@ public class mazeTestView extends View {
         //freePlayers.remove(freePlayers.indexOf(minPlayer));
         cells[minX][minY].mVisited[minPlayer] = true;
         searchPath(cells, players[minPlayer].col, players[minPlayer].row, minX, minY, pathList[minPlayer], minPlayer);
+        //stepCounter[minPlayer]++;
 
         return minPlayer;
     }
@@ -389,6 +352,7 @@ public class mazeTestView extends View {
             templist[pl].removeAll(templist[pl]);
             searchPath(cells,players[pl].col,players[pl].row, x, y, pathList[pl], pl);
             busy[pl] = true;
+           // stepCounter[pl]++;
             newMovement(pl);
         }
     }
@@ -531,26 +495,22 @@ public class mazeTestView extends View {
                 cells[x][y].pathVisited[n] = false;
     }
 
-    public class Cell {
-        boolean
-                topWall = true,
-                leftWall = true,
-                bottomWall = true,
-                rightWall = true,
-                visited = false, //for creating maze
-        toVisit; //if cell was visited by a player
-
-        boolean[] pathVisited = new boolean[N]; //for searchPath
-        volatile boolean[] mVisited = new boolean[N];
-
-        volatile int col, row;
-
-        Cell(int col, int row) {
-            this.col = col;
-            this.row = row;
-
-        }
+    public static int getStepCounter(int i) {
+        return stepCounter[i];
     }
+
+
+
+    public static Cell[][] getCells() {
+        return cells;
+    }
+
+    public static void setCells(Cell[][] _cells) {
+        cells = _cells;
+    }
+
+
+
 
 
     public class MyThread extends Thread {
@@ -565,7 +525,7 @@ public class mazeTestView extends View {
         public void setN(int n) {
             this.n = n;
         }
-        public void setRunning(boolean running) {
+        void setRunning(boolean running) {
             this.running = running;
         }
     }
