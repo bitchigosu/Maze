@@ -17,6 +17,7 @@ import com.jjoe64.graphview.series.DataPoint;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.example.konstantin.maze.MazeTestView.N;
 import static com.example.konstantin.maze.MazeTestView.getStepCounter;
 
 public class GraphFragment extends Fragment {
@@ -28,7 +29,7 @@ public class GraphFragment extends Fragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_graph, container, false);
-        dataPoints = new DataPoint[3];
+        dataPoints = new DataPoint[N];
         listOfMaxValue = new ArrayList<>();
         populateGraphView(view);
 
@@ -51,7 +52,7 @@ public class GraphFragment extends Fragment {
     }
 
     void populateGraphView(View view) {
-        for (int i = 0; i < dataPoints.length; i++) {
+        for (int i = 0; i < N; i++) {
             dataPoints[i] = new DataPoint(i + 1,getStepCounter(i));
             listOfMaxValue.add(getStepCounter(i));
         }

@@ -6,6 +6,7 @@
     <string name="save_menu">Save</string>
     <string name="load_menu">Load</string>
     <string name="refresh">Refresh</string>
+    <string name="numOfPlayers"># of players</string>
 
     <string-array name="playersNum">
         <item>1</item>

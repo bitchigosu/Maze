@@ -38,4 +38,16 @@
 
     </ListView>
 
+    <ListView
+        android:id="@+id/listQuantity"
+        style="@android:style/Widget.DeviceDefault.ExpandableListView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@android:color/background_light"
+        android:scrollbars="vertical"
+        android:theme="@android:style/Widget.ExpandableListView"
+        android:visibility="gone">
+
+    </ListView>
+
 </android.support.constraint.ConstraintLayout>

@@ -2,7 +2,9 @@ package com.example.konstantin.maze;
 
 import java.io.Serializable;
 
+import static com.example.konstantin.maze.MazeTestView.COLS;
 import static com.example.konstantin.maze.MazeTestView.N;
+import static com.example.konstantin.maze.MazeTestView.ROWS;
 
 class Cell implements Serializable {
     boolean
@@ -13,8 +15,8 @@ class Cell implements Serializable {
             visited = false; //for creating maze
     boolean toVisit; //if cell was visited by a player
 
-    boolean[] pathVisited = new boolean[N]; //for searchPath
-    boolean[] mVisited = new boolean[N];
+    transient boolean[] pathVisited = new boolean[N]; //for searchPath
+    transient boolean[] mVisited = new boolean[N];
 
     int col, row;
 
@@ -22,4 +24,5 @@ class Cell implements Serializable {
         this.col = col;
         this.row = row;
     }
+
 }

@@ -19,10 +19,10 @@ import java.util.Random;
 import java.util.Stack;
 
 public class MazeTestView extends View implements Serializable{
-    final static int N = 3;
+    static int N = 3;
     int minX, minY;
 
-    public static final int COLS = 20, ROWS = 20;
+    public static final int COLS = 10, ROWS = 10;
     private static final float WALL_THICKNESS = 4;
     private transient Paint wallPaint, playerPaint,player1Paint, exitPaint, pathPaint, wall1Paint, visitedPath;
     private Random random;
@@ -172,14 +172,13 @@ public class MazeTestView extends View implements Serializable{
     public boolean onTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             for (int i = 0; i < N; i ++) {
+                movement2();
                 if (!pathList[i].isEmpty()) {
                     MyThread t2 = new MyThread();
                     t2.setN(i);
                     t2.start();
-                    movement2();
                     stepCounter[i]++;
-                } else
-                    movement2();
+                }
             }
             if (isAllCellsAreVisited())
                 Toast.makeText(getContext(),"All cells are visited!",Toast.LENGTH_LONG).show();
@@ -253,30 +252,15 @@ public class MazeTestView extends View implements Serializable{
 
         float margin = cellSize / 10;
 
-        canvas.drawRect(
-                players[0].col * cellSize + margin,
-                players[0].row * cellSize + margin,
-                (players[0].col + 1) * cellSize - margin,
-                (players[0].row + 1) * cellSize - margin,
-                playerPaint
-        );
-
-        canvas.drawRect(
-                players[1].col * cellSize + margin,
-                players[1].row * cellSize + margin,
-                (players[1].col + 1) * cellSize - margin,
-                (players[1].row + 1) * cellSize - margin,
-                player1Paint
-        );
-
-        canvas.drawRect(
-                players[2].col * cellSize + margin,
-                players[2].row * cellSize + margin,
-                (players[2].col + 1) * cellSize - margin,
-                (players[2].row + 1) * cellSize - margin,
-                player1Paint
-        );
-
+        for (int i = 0; i < N; i++) {
+            canvas.drawRect(
+                    players[i].col * cellSize + margin,
+                    players[i].row * cellSize + margin,
+                    (players[i].col + 1) * cellSize - margin,
+                    (players[i].row + 1) * cellSize - margin,
+                    playerPaint
+            );
+        }
     }
 
     private void drawVisitedPath(Canvas canvas, int i, int j) {
@@ -289,6 +273,17 @@ public class MazeTestView extends View implements Serializable{
         );
     }
 
+    private boolean someFixMethod(int i, int j) {
+        boolean[] fix = new boolean[N];
+        int count = 0;
+        for (int k = 0; k < N; k++) {
+            fix[k] = !cells[i][j].mVisited[k];
+            if (fix[k])
+                count++;
+        }
+        return count == N;
+    }
+
     private int halfMovement() {
         distances = new int[COLS][ROWS];
         List<Integer> temp = new ArrayList<>();
@@ -297,7 +292,7 @@ public class MazeTestView extends View implements Serializable{
             for (int i = 0; i < COLS; i++) {
                 for (int j = 0; j < ROWS; j++) {
                     for (int k : freePlayers) {
-                        if (!cells[i][j].mVisited[1] && !cells[i][j].mVisited[0] && !cells[i][j].mVisited[2]) {
+                        if (someFixMethod(i,j)) {
                             searchPath(cells, players[k].col, players[k].row, i, j, templist[k], k);
                             temp.add(templist[k].size() - 1);
                         }
@@ -308,9 +303,7 @@ public class MazeTestView extends View implements Serializable{
                     distances[i][j] = min;
                     closestPlayer[i][j] = freePlayers.get(temp.indexOf(min));
                     temp.clear();
-                    templist[1].clear();
-                    templist[0].clear();
-                    templist[2].clear();
+                    for (List<Integer> aTemplist : templist) aTemplist.clear();
                     resetSearchPath();
                 }
             }
@@ -506,10 +499,23 @@ public class MazeTestView extends View implements Serializable{
     }
 
     public static void setCells(Cell[][] _cells) {
-        cells = _cells;
+        cells = new Cell[COLS][ROWS];
+        for (int i = 0; i < COLS; i++) {
+            for (int j = 0; j < ROWS; j++) {
+                cells[i][j] = new Cell(i, j);
+            }
+        }
+        for (int i = 0; i < COLS; i++)
+            for (int j = 0; j < ROWS; j++) {
+                cells[i][j].bottomWall = _cells[i][j].bottomWall;
+                cells[i][j].topWall = _cells[i][j].topWall;
+                cells[i][j].leftWall = _cells[i][j].leftWall;
+                cells[i][j].rightWall = _cells[i][j].rightWall;
+            }
     }
-
-
+    public static void setN(int n) {
+        N = n;
+    }
 
 
 
