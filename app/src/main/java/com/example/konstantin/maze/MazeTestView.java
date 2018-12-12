@@ -313,10 +313,8 @@ public class MazeTestView extends View implements Serializable{
         if (minDistance == 1000 || minDistance == -1)
             return -1;
         int minPlayer = closestPlayer[minX][minY];
-        //freePlayers.remove(freePlayers.indexOf(minPlayer));
         cells[minX][minY].mVisited[minPlayer] = true;
         searchPath(cells, players[minPlayer].col, players[minPlayer].row, minX, minY, pathList[minPlayer], minPlayer);
-        //stepCounter[minPlayer]++;
 
         return minPlayer;
     }
@@ -345,7 +343,6 @@ public class MazeTestView extends View implements Serializable{
             templist[pl].removeAll(templist[pl]);
             searchPath(cells,players[pl].col,players[pl].row, x, y, pathList[pl], pl);
             busy[pl] = true;
-           // stepCounter[pl]++;
             newMovement(pl);
         }
     }
@@ -413,7 +410,6 @@ public class MazeTestView extends View implements Serializable{
     private List<Integer> takeAllFreePlayers() {
         for (int i = 0; i < N; i++)
             if (pathList[i].isEmpty()) {
-               // moving[i] = false;
                 busy[i] = false;
             }
         List<Integer> freePlayersId = new ArrayList<>();

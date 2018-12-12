@@ -14,6 +14,8 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import com.jjoe64.graphview.series.DataPoint;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -24,15 +26,13 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
-import static com.example.konstantin.maze.MazeTestView.COLS;
-import static com.example.konstantin.maze.MazeTestView.N;
-import static com.example.konstantin.maze.MazeTestView.ROWS;
 import static com.example.konstantin.maze.MazeTestView.setN;
 
 public class MainActivity extends AppCompatActivity {
 
-    Intent intent;
     ListView listView, listQuantity;
+
+    private static DataPoint[] dataPoints;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,13 +52,19 @@ public class MainActivity extends AppCompatActivity {
 
     private void saveMaze() {
         Cell[][] cells = MazeTestView.cells;
+        dataPoints = GraphFragment.getNewDataPoints();
+        List<Object> objects = new ArrayList<>();
         try {
             File file = new File (this.getFilesDir(), "" + Calendar.getInstance().getTimeInMillis() + ".txt");
             file.getParentFile().mkdirs();
             file.createNewFile();
             FileOutputStream fileOutputStream = new FileOutputStream(file,false);
             ObjectOutputStream outputStream = new ObjectOutputStream(fileOutputStream);
-            outputStream.writeObject(cells);
+
+            objects.add(cells);
+            objects.add(dataPoints);
+
+            outputStream.writeObject(objects);
             outputStream.close();
             fileOutputStream.close();
             Toast.makeText(this, "Maze saved successfully!", Toast.LENGTH_SHORT).show();
@@ -110,6 +116,7 @@ public class MainActivity extends AppCompatActivity {
         List<String> fileList = new ArrayList<>();
         File dir = getFilesDir();
         File[] subFiles = dir.listFiles();
+        ArrayList<Object> deserialized = new ArrayList<>();
 
         if (subFiles != null) {
             for (File file : subFiles) {
@@ -121,7 +128,9 @@ public class MainActivity extends AppCompatActivity {
                 restartView();
                 FileInputStream fileInputStream = new FileInputStream(path);
                 ObjectInputStream in = new ObjectInputStream(fileInputStream);
-                MazeTestView.setCells((Cell[][]) in.readObject());
+                deserialized = (ArrayList<Object>)in.readObject();
+                MazeTestView.setCells((Cell[][]) deserialized.get(0));
+                dataPoints = ((DataPoint[]) deserialized.get(1));
                 in.close();
                 fileInputStream.close();
                 Toast.makeText(this, "Quantity of players was changed", Toast.LENGTH_SHORT).show();
@@ -183,5 +192,9 @@ public class MainActivity extends AppCompatActivity {
                 return super.onOptionsItemSelected(item);
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    public static DataPoint[] getDataPoints() {
+        return dataPoints;
     }
 }
